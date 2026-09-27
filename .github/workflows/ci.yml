@@ -58,6 +58,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: node --test "modules/static-site/functions/*.test.ts"
 
+      - name: Lint CloudFormation
+        if: ${{ !cancelled() }}
+        run: pipx run --spec cfn-lint==1.57.0 cfn-lint cloudformation/*.yaml
+
       - name: Install Workflow Linter
         id: actionlint
         if: ${{ !cancelled() }}

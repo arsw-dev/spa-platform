@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >-
+  Gives arsw.dev (AWS account 559401928721) administrator access to this AWS account so it can build and run your
+  website. Access requires multi-factor authentication and the access code arsw.dev sent you, and every action is
+  recorded in CloudTrail. To remove access at any time, delete this stack.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Access code
+        Parameters:
+          - ExternalId
+      - Label:
+          default: Advanced (leave as they are)
+        Parameters:
+          - TrustedAccountId
+          - RoleName
+    ParameterLabels:
+      ExternalId:
+        default: Access code from arsw.dev
+      TrustedAccountId:
+        default: arsw.dev AWS account
+      RoleName:
+        default: Role name
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: >-
+      The access code arsw.dev sent you. It's unique to your account, so arsw.dev's access can't be used against
+      anyone else's.
+    MinLength: 10
+    MaxLength: 128
+    AllowedPattern: '[\w+=,.@:/-]+'
+    ConstraintDescription: '10 to 128 letters, digits and + = , . @ : / _ - characters'
+
+  TrustedAccountId:
+    Type: String
+    Description: The AWS account arsw.dev works from
+    Default: '559401928721'
+    AllowedPattern: '\d{12}'
+    ConstraintDescription: 'a 12-digit AWS account ID'
+
+  RoleName:
+    Type: String
+    Description: Name of the role arsw.dev uses in your account
+    Default: arsw-dev-contractor
+    AllowedPattern: '[\w+=,.@-]{1,64}'
+    ConstraintDescription: 'up to 64 letters, digits and + = , . @ _ - characters'
+
+Resources:
+  ContractorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Description: arsw.dev's access to build and run your website. Delete the stack that created it to remove access.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ArswDevWithMfaAndAccessCode
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${TrustedAccountId}:root
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+              Bool:
+                aws:MultiFactorAuthPresent: 'true'
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
+      Tags:
+        - Key: managed_by
+          Value: cloudformation
+        - Key: purpose
+          Value: arsw-dev contractor access
+
+Outputs:
+  AccountId:
+    Description: Send this to arsw.dev
+    Value: !Ref AWS::AccountId
+  RoleArn:
+    Description: The role arsw.dev will use
+    Value: !GetAtt ContractorRole.Arn

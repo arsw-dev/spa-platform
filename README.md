@@ -6,16 +6,17 @@ Everything needed to host a single-page app on AWS (S3 + CloudFront) with Cloudf
 
 ## What's here
 
-| Path                                                                     | What                                                                                                                        |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| [`modules/static-site`](modules/static-site)                             | S3 + CloudFront + routing function + optional certificate + deploy role for one site                                        |
-| [`modules/cloudflare-dns`](modules/cloudflare-dns)                       | DNS records in a Cloudflare zone (certificate validation and domain records)                                                |
-| [`modules/account-bootstrap`](modules/account-bootstrap)                 | Per-account setup: state bucket, GitHub OIDC provider, read-only plan role                                                  |
-| [`tools/deploy`](tools/deploy)                                           | Deploy tool: uploads a Vite build with the right caching, records each deploy, prunes safely, and smoke-tests the live site |
-| [`.github/workflows/site-ci.yml`](.github/workflows/site-ci.yml)         | Reusable CI for site repos: lint, build, actionlint, Terraform fmt and plans, live routing-function test                    |
-| [`.github/workflows/site-deploy.yml`](.github/workflows/site-deploy.yml) | Reusable deploy for site repos: build, deploy with `tools/deploy` at the same commit, smoke test                            |
+| Path                                                                         | What                                                                                                                                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`modules/static-site`](modules/static-site)                                 | S3 + CloudFront + routing function + optional certificate + deploy role for one site                                                                                         |
+| [`modules/cloudflare-dns`](modules/cloudflare-dns)                           | DNS records in a Cloudflare zone (certificate validation and domain records)                                                                                                 |
+| [`modules/account-bootstrap`](modules/account-bootstrap)                     | Per-account setup: state bucket, GitHub OIDC provider, read-only plan role                                                                                                   |
+| [`tools/deploy`](tools/deploy)                                               | Deploy tool: uploads a Vite build with the right caching, records each deploy, prunes safely, and smoke-tests the live site                                                  |
+| [`.github/workflows/site-ci.yml`](.github/workflows/site-ci.yml)             | Reusable CI for site repos: lint, build, actionlint, Terraform fmt and plans, live routing-function test                                                                     |
+| [`.github/workflows/site-deploy.yml`](.github/workflows/site-deploy.yml)     | Reusable deploy for site repos: build, deploy with `tools/deploy` at the same commit, smoke test                                                                             |
+| [`cloudformation/contractor-role.yaml`](cloudformation/contractor-role.yaml) | Grants the contractor (arsw.dev) administrator access to a client's AWS account, requiring MFA and a per-client access code. Each release publishes it with a one-click link |
 
-Coming before `v1.0.0-rc.1`: the CloudFormation template for granting contractor access, a site template repo, and onboarding guides.
+Coming before `v1.0.0-rc.1`: a site template repo and onboarding guides.
 
 ## Using the modules
 
@@ -49,6 +50,16 @@ node --test "modules/static-site/functions/*.test.ts"
 CI runs all of the above on every pull request. **CI Result** is the required check.
 
 Requirements: Node 24, pnpm 11, Terraform 1.15.6.
+
+## Releases
+
+Pushing a `v*` tag runs `release.yml`:
+
+1. It uploads `cloudformation/contractor-role.yaml` to `contractor-role/<tag>/` in the templates bucket. CloudFormation's one-click links only accept templates from S3, so this is the only public copy.
+2. It creates the GitHub release; versions with a hyphen (`-rc.1`) are pre-releases.
+3. The release notes include the one-click link to send a client, with `EXTERNAL_ID` replaced by their access code.
+
+Published templates can't be replaced or deleted, just like tags.
 
 ## Versioning
 
