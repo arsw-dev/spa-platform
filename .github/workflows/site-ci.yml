@@ -16,6 +16,10 @@ name: Site CI
 #       secrets:
 #         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 #
+# Site repos are public. A private one (GitHub Team) needs `actions: read` to read its environment, both in the
+# caller's permissions above and on the Checks job here; without it the environment check fails as if the
+# environment didn't exist.
+#
 # Jobs: Checks (lint, site build, actionlint), Terraform (fmt), Plan (every root, -lock=false, PR comments, and the
 # routing function's cases in CloudFront's own runtime). Within a job, steps keep running after one fails so a
 # single run reports every failure.
@@ -107,7 +111,8 @@ jobs:
         run: pnpm --filter "$SITE_PACKAGE" build
 
       # The deploy role trusts this environment, so it must only run for main. GitHub Free can't configure
-      # environments on private repos, which is why client site repos are public (or on GitHub Team).
+      # environments on private repos, which is why client site repos are public (or on GitHub Team, which also
+      # needs `actions: read` here: see the header).
       - name: Check Deploy Environment Is Limited to main
         if: ${{ !cancelled() }}
         env:

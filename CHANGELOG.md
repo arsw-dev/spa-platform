@@ -24,3 +24,5 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - The deploy job no longer restores a dependency cache the site's build job could write.
 - Plan checks out without persisted credentials, reads every PR comment, and removes its comment when a root's plan returns to "No changes.".
 - CI typechecks and tests every package under `tools/`.
+- The AWS guide states plainly that the contractor role is administrator access to the whole account, including other systems and cost data.
+- Onboarding: create the protected `production` environment before a new site's first push.

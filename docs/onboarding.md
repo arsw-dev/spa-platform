@@ -62,6 +62,8 @@ Before sending the AWS guide:
 
 Follow [spa-template](https://github.com/arsw-dev/spa-template)'s README: clone it, run `node scripts/setup.ts`, `pnpm install`, commit, point `origin` at the client's repository, and push.
 
+**Before that first push**, create the `production` environment with deployment branches limited to `main` (Settings → Environments). The push runs Deploy, and a job that names an environment creates it, unprotected, if it doesn't exist yet. CI's environment check would catch that, but it's simpler never to have it. That first Deploy still fails, because the environment has no variables until step 5: that's expected.
+
 ## 5. First-time setup
 
 Follow **First-time setup** in the generated README, using `AWS_PROFILE=<site>`:
