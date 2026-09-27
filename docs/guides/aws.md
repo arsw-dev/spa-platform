@@ -37,17 +37,8 @@ arsw.dev will send you a link and an access code. The link opens AWS with everyt
 4. Choose **Create stack** and wait a minute until it shows **CREATE_COMPLETE**.
 5. Open the **Outputs** tab and send arsw.dev the **AccountId** shown there.
 
-**What this allows:** arsw.dev gets **administrator access to your whole AWS account**: not only your website, but anything else in the account, including other systems and your AWS costs and usage. arsw.dev uses it for your website only, and you can remove it at any time (below).
+**What this allows:** arsw.dev gets **administrator access to your whole AWS account**: not only your website, but anything else in the account, including other systems and your AWS costs and usage. arsw.dev uses it for your website only.
 
 - It can only sign in with a recent multi-factor sign-in and your access code.
 - AWS records its actions in your account's CloudTrail event history (the last 90 days), which you can review at any time.
 - It can't see your password.
-
-## Removing access
-
-Whenever you want, for example between projects:
-
-1. Search for **CloudFormation** and open it.
-2. Select the stack named **arsw-dev-contractor** and choose **Delete**.
-
-arsw.dev's access through this role ends immediately. Your website keeps running: the roles it uses to plan and deploy stay, and only your website's own GitHub repository can use them. To give access again later, open the same link.

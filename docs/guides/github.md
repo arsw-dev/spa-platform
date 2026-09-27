@@ -28,4 +28,4 @@ An organization is your business's space on GitHub, separate from any one person
 
 Send arsw.dev the repository's name (for example `acme-co/website`).
 
-**What Admin allows:** arsw.dev can push code and set up the repository's automation and settings. You stay the organization's owner, and you can remove access at any time from the same **Collaborators and teams** page.
+**What Admin allows:** arsw.dev can push code and set up the repository's automation and settings. You stay the organization's owner.
