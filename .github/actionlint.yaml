@@ -1,0 +1,7 @@
+# job.workflow_repository / job.workflow_sha are documented GitHub contexts (the reusable workflow's own repo and
+# commit) that actionlint 1.7.12 doesn't know yet. Remove this once actionlint recognises them.
+paths:
+  .github/workflows/site-deploy.yml:
+    ignore:
+      - 'property "workflow_repository" is not defined'
+      - 'property "workflow_sha" is not defined'

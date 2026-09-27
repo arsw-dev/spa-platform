@@ -1,0 +1,257 @@
+name: Site CI
+
+# Reusable CI for a site repo built on spa-platform. Call it from the site's own workflow, pinned to a release,
+# and keep an aggregate "CI Result" job there as the required check:
+#
+#   jobs:
+#     ci:
+#       uses: arsw-dev/spa-platform/.github/workflows/site-ci.yml@<release commit SHA> # vX.Y.Z
+#       permissions:
+#         contents: read
+#         id-token: write
+#         pull-requests: write
+#       with:
+#         plan-role-arn: arn:aws:iam::<account>:role/<name>-terraform-plan
+#         function-name: <site>-viewer-request
+#       secrets:
+#         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+#
+# Jobs: Checks (lint, site build, actionlint), Terraform (fmt), Plan (every root, -lock=false, PR comments, and the
+# routing function's cases in CloudFront's own runtime). Within a job, steps keep running after one fails so a
+# single run reports every failure.
+
+on:
+  workflow_call:
+    inputs:
+      plan-role-arn:
+        description: The account's Terraform plan role (account-bootstrap's plan_role_arn)
+        type: string
+        required: true
+      function-name:
+        description: The site's routing function (<site>-viewer-request) for the live-runtime test; empty skips it
+        type: string
+        default: ''
+      terraform-roots:
+        description: JSON array of Terraform root directories to plan, in order
+        type: string
+        default: '["infra/bootstrap", "infra"]'
+      site-root:
+        description: The Terraform root that uses static-site (where the live test finds the module's cases)
+        type: string
+        default: infra
+      site-package:
+        description: pnpm workspace package that builds the site
+        type: string
+        default: site
+      requires-cloudflare:
+        description: Fail fast with a clear message when the CLOUDFLARE_API_TOKEN secret is missing
+        type: boolean
+        default: true
+      node-version:
+        type: string
+        default: '24'
+      terraform-version:
+        description: Must match the Terraform used for local applies
+        type: string
+        default: 1.15.6
+      aws-region:
+        type: string
+        default: us-east-1
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        description: DNS:Read token for the site's zone (plans must never be able to change DNS)
+        required: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # Explicit bash gets -o pipefail; without it `terraform plan | tee` passes even when the plan fails
+    shell: bash
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set Up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install Dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint
+
+      - name: Build Site
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          SITE_PACKAGE: ${{ inputs.site-package }}
+        run: pnpm --filter "$SITE_PACKAGE" build
+
+      - name: Install Workflow Linter
+        id: actionlint
+        if: ${{ !cancelled() }}
+        env:
+          VERSION: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          curl -sSfLo "$RUNNER_TEMP/actionlint.tar.gz" "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "${SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+
+      - name: Lint Workflows
+        if: ${{ !cancelled() && steps.actionlint.outcome == 'success' }}
+        run: '"$RUNNER_TEMP/actionlint" -color'
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set Up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: false
+
+      - name: Check Formatting
+        env:
+          ROOTS: ${{ inputs.terraform-roots }}
+        run: |
+          failed=0
+          while read -r root; do
+            terraform fmt -check -recursive "$root" || failed=1
+          done < <(jq -r '.[]' <<< "$ROOTS")
+          exit "$failed"
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    # Dependabot runs get no OIDC token, so they can't assume the plan role
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Installed before credentials exist, so no third-party setup code runs with them
+      - name: Set Up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ inputs.plan-role-arn }}
+          aws-region: ${{ inputs.aws-region }}
+
+      # Plans run with -lock=false: a plan changes nothing, the apply re-plans under the lock, and the plan role can't
+      # write lock files, so PR code can't clear or plant the lock that protects applies
+      - name: Plan
+        env:
+          ROOTS: ${{ inputs.terraform-roots }}
+          REQUIRES_CLOUDFLARE: ${{ inputs.requires-cloudflare }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # An empty token isn't rejected by the Cloudflare provider; it sends unauthenticated requests that fail obscurely
+          if [ "$REQUIRES_CLOUDFLARE" = "true" ] && [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is empty. Add it as a repository secret (Settings → Secrets and variables → Actions → Repository secrets) and pass it to the reusable workflow."
+            exit 1
+          fi
+
+          failed=0
+          while read -r root; do
+            echo "::group::Plan $root"
+            if terraform -chdir="$root" init -input=false \
+              && terraform -chdir="$root" validate \
+              && terraform -chdir="$root" plan -no-color -input=false -lock=false 2>&1 | tee "$root/plan.txt"; then
+              :
+            else
+              echo "::error::Plan failed for $root"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done < <(jq -r '.[]' <<< "$ROOTS")
+          exit "$failed"
+
+      - name: Comment Plans
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ROOTS: ${{ inputs.terraform-roots }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            for (const dir of JSON.parse(process.env.ROOTS)) {
+              const planPath = `${dir}/plan.txt`;
+              if (!fs.existsSync(planPath)) continue;
+              const plan = fs.readFileSync(planPath, 'utf8');
+              if (plan.includes('No changes.')) continue;
+
+              const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n...(truncated)' : plan;
+              const marker = `<!-- terraform-plan:${dir} -->`;
+              const body = `${marker}\n<details><summary>Terraform Plan: ${dir}</summary>\n\n\`\`\`\n${truncated}\n\`\`\`\n</details>`;
+              const existing = comments.find(c => c.body.includes(marker));
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  comment_id: existing.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body,
+                });
+              }
+            }
+
+      # Runs the routing function's cases in CloudFront's own runtime. The cases come from the static-site module
+      # copy that `terraform init` downloaded for the site root, so they match the module version actually deployed.
+      # Infra is applied before a PR is pushed, so the LIVE function is this branch's code.
+      - name: Test CloudFront Function (Live Runtime)
+        if: ${{ !cancelled() && inputs.function-name != '' }}
+        env:
+          SITE_ROOT: ${{ inputs.site-root }}
+          FUNCTION_NAME: ${{ inputs.function-name }}
+        run: |
+          module_dir="$(jq -r '[.Modules[] | select(.Source | test("modules/static-site"))][0].Dir // empty' "$SITE_ROOT/.terraform/modules/modules.json")"
+          if [ -z "$module_dir" ]; then
+            echo "::error::No static-site module found in $SITE_ROOT/.terraform/modules/modules.json"
+            exit 1
+          fi
+          "$SITE_ROOT/$module_dir/functions/test-live.sh"
