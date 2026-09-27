@@ -104,10 +104,11 @@ Missing any of these shows up as `AccessDenied` in the PR's Plan job.
 
 ## Renaming or moving the GitHub repository
 
-AWS trusts GitHub Actions by the repository's **name**: the roles accept tokens for `repo:<owner>/<repo>:pull_request` (plan) and `repo:<owner>/<repo>:environment:production` (deploy).
+AWS trusts GitHub Actions by the token's **subject**: the roles accept `<prefix>:pull_request` (plan) and `<prefix>:environment:production` (deploy). The prefix is the repo's, as GitHub reports it: `gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix`.
 
-- **Rename or transfer:** GitHub redirects git traffic, but workflow tokens carry the new name, so both roles reject them. Update `github_repo` in `infra/main.tf` and `infra/bootstrap/main.tf` and apply both roots. Until then, CI plans and deploys fail with "Not authorized to perform sts:AssumeRoleWithWebIdentity".
-- **Don't leave a trust pointing at a name you've given up.** If the old owner or repo name is freed and someone else registers it, their workflows would match the old trust. Update the trust as part of the rename, and never delete a GitHub org or account while AWS roles still trust its repos.
+- **Immutable subjects** (`repo:<owner>@<owner id>/<repo>@<repo id>`) are GitHub's default for new repos. The modules take the prefix as `github_subject_prefix`; spa-template's setup fills it in. Older repos use `repo:<owner>/<repo>` (`github_subject_prefix` left null).
+- **Rename or transfer:** GitHub redirects git traffic, but workflow tokens carry the new names, so both roles reject them. Update `github_repo` and `github_subject_prefix` in `infra/main.tf` and `infra/bootstrap/main.tf` and apply both roots. Until then, CI plans and deploys fail with "Not authorized to perform sts:AssumeRoleWithWebIdentity".
+- **Don't leave a legacy trust pointing at a name you've given up.** If the old owner or repo name is freed and someone else registers it, their workflows would match a `repo:<owner>/<repo>` trust (immutable subjects include the IDs, so they can't). Update the trust as part of the rename, and never delete a GitHub org or account while AWS roles still trust its repos.
 - **Custom OIDC subject claims:** if the org or repo customizes the OIDC `sub` claim template, token subjects change format and both trusts stop matching. Keep GitHub's default, or update the trust conditions to match.
 
 ## Upgrade Terraform

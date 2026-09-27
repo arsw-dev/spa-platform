@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
+## 1.0.0-rc.2
+
+### Added
+
+- `github_subject_prefix` on `static-site` and `account-bootstrap`: the repo's OIDC subject prefix as GitHub reports it. New GitHub repos use immutable subjects (`repo:<owner>@<id>/<repo>@<id>`), which rc.1's roles, trusting only `repo:<owner>/<repo>`, rejected. Null keeps the legacy subject, so existing sites plan no changes.
+
 ## 1.0.0-rc.1
 
 ### Added

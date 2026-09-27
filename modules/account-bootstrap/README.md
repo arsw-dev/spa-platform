@@ -16,11 +16,13 @@ One-time setup for an AWS account that hosts sites: the Terraform state bucket, 
 
 ```hcl
 module "bootstrap" {
-  source = "github.com/arsw-dev/spa-platform//modules/account-bootstrap?ref=v1.0.0-rc.1"
+  source = "github.com/arsw-dev/spa-platform//modules/account-bootstrap?ref=v1.0.0-rc.2"
 
   name              = "acme"
   state_bucket_name = "acme-tfstate-<account id>-us-east-1"
   github_repo       = "acme-co/site"
+  # GitHub's immutable subject for this repo: gh api repos/acme-co/site/actions/oidc/customization/sub --jq .sub_claim_prefix
+  github_subject_prefix = "repo:acme-co@111111/site@222222"
   state_keys        = ["bootstrap/terraform.tfstate", "site/terraform.tfstate"]
 }
 ```
@@ -31,14 +33,15 @@ module "bootstrap" {
 
 ## Inputs
 
-| Name                          | Type           | Default  | Description                                                               |
-| ----------------------------- | -------------- | -------- | ------------------------------------------------------------------------- |
-| `name`                        | `string`       | required | Prefix for account-level names (the plan role)                            |
-| `state_bucket_name`           | `string`       | required | Terraform state bucket                                                    |
-| `github_repo`                 | `string`       | required | `owner/repo` whose pull requests may assume the plan role                 |
-| `state_keys`                  | `list(string)` | required | State keys the plan role may read, one per root; exact keys, no wildcards |
-| `create_github_oidc_provider` | `bool`         | `true`   | Set `false` if the account already has GitHub's OIDC provider             |
-| `tags`                        | `map(string)`  | `{}`     | Extra tags; `managed_by` is always set                                    |
+| Name                          | Type           | Default  | Description                                                                                                                                                                       |
+| ----------------------------- | -------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                        | `string`       | required | Prefix for account-level names (the plan role)                                                                                                                                    |
+| `state_bucket_name`           | `string`       | required | Terraform state bucket                                                                                                                                                            |
+| `github_repo`                 | `string`       | required | `owner/repo` whose pull requests may assume the plan role                                                                                                                         |
+| `github_subject_prefix`       | `string`       | `null`   | The repo's OIDC subject prefix from GitHub (`repo:<owner>@<id>/<repo>@<id>` for repos with immutable subjects, GitHub's default for new repos). `null` means `repo:<github_repo>` |
+| `state_keys`                  | `list(string)` | required | State keys the plan role may read, one per root; exact keys, no wildcards                                                                                                         |
+| `create_github_oidc_provider` | `bool`         | `true`   | Set `false` if the account already has GitHub's OIDC provider                                                                                                                     |
+| `tags`                        | `map(string)`  | `{}`     | Extra tags; `managed_by` is always set                                                                                                                                            |
 
 ## Outputs
 
@@ -51,5 +54,6 @@ module "bootstrap" {
 
 ## Notes
 
-- **Trust is by repository name** (`repo:<owner>/<repo>:pull_request`). Renaming or transferring the repo breaks it until `github_repo` is updated, and a trust left pointing at a freed name could match whoever registers it next.
+- **Trust is by OIDC subject.** GitHub's default for new repos is the immutable form, `repo:<owner>@<owner id>/<repo>@<repo id>:pull_request`: pass it as `github_subject_prefix`, exactly as GitHub reports it. Older repos use `repo:<owner>/<repo>:pull_request` (leave `github_subject_prefix` null). A wrong prefix shows up as "Not authorized to perform sts:AssumeRoleWithWebIdentity".
+- Renaming or transferring the repo changes the subject, so update the trust. With the legacy form, a trust left pointing at a freed name could match whoever registers it next; the IDs in the immutable form prevent that.
 - The plan role's permissions come from the API calls plans actually make. Before a provider upgrade, capture the new provider's calls (`TF_LOG=debug terraform plan`) and check them against the grants.

@@ -16,7 +16,7 @@ resource "aws_iam_role" "plan" {
         Condition = {
           StringEquals = {
             "${local.github_oidc_url}:aud" = "sts.amazonaws.com"
-            "${local.github_oidc_url}:sub" = "repo:${var.github_repo}:pull_request"
+            "${local.github_oidc_url}:sub" = "${local.github_subject_prefix}:pull_request"
           }
         }
       }
