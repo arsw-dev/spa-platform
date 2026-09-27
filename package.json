@@ -1,0 +1,17 @@
+{
+  "name": "spa-platform",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "catalog:linting",
+    "@types/node": "catalog:tooling",
+    "eslint": "catalog:linting",
+    "eslint-plugin-format": "catalog:linting",
+    "typescript": "catalog:tooling"
+  }
+}
