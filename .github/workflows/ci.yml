@@ -46,13 +46,13 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: pnpm lint
 
-      - name: Typecheck Deploy Tool
+      - name: Typecheck Tools
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm --filter deploy typecheck
+        run: pnpm --filter './tools/*' typecheck
 
-      - name: Test Deploy Tool
+      - name: Test Tools
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm --filter deploy test
+        run: pnpm --filter './tools/*' test
 
       - name: Test CloudFront Function
         if: ${{ !cancelled() }}

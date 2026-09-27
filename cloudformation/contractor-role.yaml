@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 
 Description: >-
   Gives arsw.dev (AWS account 559401928721) administrator access to this AWS account so it can build and run your
-  website. Access requires multi-factor authentication and the access code arsw.dev sent you, and every action is
-  recorded in CloudTrail. To remove access at any time, delete this stack.
+  website. Access requires a recent multi-factor sign-in and the access code arsw.dev sent you, and actions are
+  recorded in this account's CloudTrail event history. To remove this access at any time, delete this stack.
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -31,10 +31,11 @@ Parameters:
     Description: >-
       The access code arsw.dev sent you. It's unique to your account, so arsw.dev's access can't be used against
       anyone else's.
-    MinLength: 10
-    MaxLength: 128
-    AllowedPattern: '[\w+=,.@:/-]+'
-    ConstraintDescription: '10 to 128 letters, digits and + = , . @ : / _ - characters'
+    MinLength: 18
+    MaxLength: 64
+    # The format onboarding generates (<site>-<16 hex>): rejects the link's ACCESS_CODE placeholder and typos
+    AllowedPattern: '[a-z0-9-]+-[0-9a-f]{16}'
+    ConstraintDescription: 'the code arsw.dev sent you: lowercase letters, digits and hyphens, ending in a hyphen and 16 hexadecimal characters'
 
   TrustedAccountId:
     Type: String
@@ -70,6 +71,9 @@ Resources:
                 sts:ExternalId: !Ref ExternalId
               Bool:
                 aws:MultiFactorAuthPresent: 'true'
+              # The MFA sign-in behind the session must be under 12 hours old
+              NumericLessThan:
+                aws:MultiFactorAuthAge: '43200'
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
       Tags:

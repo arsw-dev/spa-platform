@@ -2,11 +2,32 @@
 
 The contractor's checklist, from first conversation to a live site on the client's domain. The client owns every account; you get access they can revoke. The client-facing steps are in [`guides/`](guides), written for someone who has never used AWS, GitHub or Cloudflare.
 
+## 0. Before your first client
+
+Every client's contractor role trusts **your** AWS account, as long as the caller signed in with MFA recently. So your account has to make MFA unskippable. Otherwise a leaked long-term key could enrol a new MFA device and reach every client.
+
+1. **Deny everything without MFA** for your IAM user, except minting an MFA session. Attach this as an inline policy (arsw-dev/portfolio manages it in `infra/bootstrap/`):
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Sid": "DenyAllWithoutMfa",
+       "Effect": "Deny",
+       "NotAction": ["sts:GetSessionToken"],
+       "Resource": "*",
+       "Condition": { "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" } }
+     }]
+   }
+   ```
+   Don't exempt MFA-device management: that's exactly what a leaked key would use to enrol its own device.
+2. **Work from a daily MFA session.** Set `mfa_serial` on the profile that holds your key (`aws configure set mfa_serial <arn>`). Then run `pnpm --filter contractor mfa-session` from this repository each day. It writes a 12-hour, MFA-backed `arsw-mfa` profile, taking the code from 1Password when `OP_MFA_ITEM` names the item and prompting otherwise. Everything else sources from `arsw-mfa`: your own account's Terraform and every client profile.
+
 ## 1. Gather
 
 - The domain, its registrar, and who manages its DNS today.
 - **Whether email runs on the domain.** If it does, ask for a screenshot or export of every current DNS record _before anything changes_. Cloudflare imports most of them, but not always all.
 - Whether the client already has AWS, GitHub and Cloudflare accounts.
+- **Whether the site's repository can be public.** It should be: it holds no secrets, and on GitHub's free plan a private repository can't have the protected `production` environment or the pull-request ruleset that deploys depend on. A client who needs it private must be on **GitHub Team**.
 
 ## 2. The client grants access
 
@@ -20,9 +41,9 @@ Send the guides in this order. Each ends with something they send back.
 
 Before sending the AWS guide:
 
-1. Generate the client's access code (external ID): `echo "<site>-$(openssl rand -hex 8)"`.
+1. Generate the client's access code (external ID): `echo "<site>-$(openssl rand -hex 8)"`. The template only accepts that shape (`<site>-<16 hex>`).
 2. Store it in your password manager with their account details. It isn't a password, but it must be unique to them.
-3. Take the one-click link from the [latest release](https://github.com/arsw-dev/spa-platform/releases), replace `EXTERNAL_ID` with their code, and send it with the guide.
+3. Take the one-click link from the [latest release](https://github.com/arsw-dev/spa-platform/releases), replace `ACCESS_CODE` with their code, and send it with the guide.
 
 ## 3. Your access
 
@@ -30,12 +51,11 @@ Before sending the AWS guide:
    ```ini
    [profile <site>]
    role_arn       = arn:aws:iam::<client account>:role/arsw-dev-contractor
-   source_profile = <your profile>
-   mfa_serial     = arn:aws:iam::<your account>:mfa/<device>
+   source_profile = arsw-mfa
    external_id    = <their access code>
    region         = us-east-1
    ```
-   Check it with `aws sts get-caller-identity --profile <site>`.
+   There's no `mfa_serial` here: the MFA comes from the `arsw-mfa` session (step 0), so neither the CLI nor Terraform prompts. Terraform can't answer an MFA prompt. Check the profile with `aws sts get-caller-identity --profile <site>`. Role sessions last an hour, so start a long apply (a new distribution) with a fresh one.
 2. **Cloudflare:** create a personal API token with _Zone → DNS → Edit_, limited to their zone, for your workstation. It stops working when they remove you, as it should.
 
 ## 4. Create the repository

@@ -4,6 +4,9 @@ name: Release
 # the GitHub release with that version's one-click link. Tags are immutable (ruleset), and so are published
 # templates: uploads use If-None-Match: *, and the release role can't replace or delete anything.
 #
+# Re-running is safe: an already-published template that's byte-identical is accepted, and an existing release is
+# left alone. Only commits on main are released.
+#
 # Needs repository variables TEMPLATES_BUCKET and RELEASE_ROLE_ARN (outputs of arsw-dev/portfolio's infra/bootstrap).
 
 on:
@@ -28,6 +31,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A tag can be pushed on any commit; only merged code gets published
+      - name: Check Tag Is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) isn't on main; refusing to release it"
+            exit 1
+          fi
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -40,12 +54,25 @@ jobs:
           BUCKET: ${{ vars.TEMPLATES_BUCKET }}
           TAG: ${{ github.ref_name }}
         run: |
-          aws s3api put-object \
-            --bucket "$BUCKET" \
-            --key "contractor-role/$TAG/contractor-role.yaml" \
-            --body cloudformation/contractor-role.yaml \
-            --content-type text/yaml \
-            --if-none-match '*'
+          key="contractor-role/$TAG/contractor-role.yaml"
+          url="https://${BUCKET}.s3.us-east-1.amazonaws.com/${key}"
+
+          if ! aws s3api put-object --bucket "$BUCKET" --key "$key" --body cloudformation/contractor-role.yaml \
+            --content-type text/yaml --if-none-match '*' 2> "$RUNNER_TEMP/put.err"; then
+            if ! grep -q PreconditionFailed "$RUNNER_TEMP/put.err"; then
+              cat "$RUNNER_TEMP/put.err" >&2
+              exit 1
+            fi
+            echo "$key already exists (a re-run?); checking it's this template"
+          fi
+
+          # Clients fetch it anonymously, so check it the same way, and that it's exactly this tag's template
+          curl -sSf "$url" -o "$RUNNER_TEMP/published.yaml"
+          if ! cmp -s "$RUNNER_TEMP/published.yaml" cloudformation/contractor-role.yaml; then
+            echo "::error::$url differs from this tag's cloudformation/contractor-role.yaml"
+            exit 1
+          fi
+          echo "Published $url"
 
       - name: Create GitHub Release
         env:
@@ -53,8 +80,13 @@ jobs:
           BUCKET: ${{ vars.TEMPLATES_BUCKET }}
           TAG: ${{ github.ref_name }}
         run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists"
+            exit 0
+          fi
+
           template_url="https://${BUCKET}.s3.us-east-1.amazonaws.com/contractor-role/${TAG}/contractor-role.yaml"
-          quick_create="https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?templateURL=$(jq -rn --arg u "$template_url" '$u|@uri')&stackName=arsw-dev-contractor&param_ExternalId=EXTERNAL_ID"
+          quick_create="https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?templateURL=$(jq -rn --arg u "$template_url" '$u|@uri')&stackName=arsw-dev-contractor&param_ExternalId=ACCESS_CODE"
 
           cat > "$RUNNER_TEMP/notes.md" <<EOF
           Changes: see [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/CHANGELOG.md).
@@ -62,7 +94,7 @@ jobs:
           ## Contractor access template
 
           - Template: ${template_url}
-          - One-click link for a client (replace \`EXTERNAL_ID\` with their access code before sending):
+          - One-click link for a client (replace \`ACCESS_CODE\` with their \`<site>-<16 hex>\` access code before sending; the template rejects anything else):
 
             ${quick_create}
           EOF
