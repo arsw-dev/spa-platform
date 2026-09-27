@@ -1,0 +1,22 @@
+minimumReleaseAge: 4320
+
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
+packages:
+  - tools/*
+
+catalogs:
+  aws:
+    '@aws-sdk/client-cloudfront': 3.1139.0
+    '@aws-sdk/client-s3': 3.1139.0
+
+  linting:
+    '@antfu/eslint-config': 9.0.0
+    eslint: 10.4.1
+    eslint-plugin-format: 2.0.1
+
+  tooling:
+    '@types/node': 25.9.3
+    typescript: 6.0.3
