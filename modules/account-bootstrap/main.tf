@@ -3,6 +3,7 @@ data "aws_caller_identity" "current" {}
 locals {
   github_oidc_url          = "token.actions.githubusercontent.com"
   github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.github_oidc_url}"
+  github_subject_prefix    = coalesce(var.github_subject_prefix, "repo:${var.github_repo}")
 
   tags = merge(var.tags, {
     managed_by = "terraform"

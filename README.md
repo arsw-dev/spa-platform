@@ -2,7 +2,7 @@
 
 Everything needed to host a single-page app on AWS (S3 + CloudFront) with Cloudflare DNS, deployed from GitHub Actions. Each site lives in its owner's AWS account, GitHub repository and Cloudflare account. This repo is the shared, versioned part they pin to.
 
-> **Status:** release candidate (`v1.0.0-rc.1`). `v1.0.0` follows an end-to-end run in a fresh AWS account.
+> **Status:** release candidate (`v1.0.0-rc.2`). `v1.0.0` follows an end-to-end run in a fresh AWS account.
 
 ## What's here
 
@@ -32,7 +32,7 @@ Pin a release tag (tags are immutable once published):
 
 ```hcl
 module "site" {
-  source = "github.com/arsw-dev/spa-platform//modules/static-site?ref=v1.0.0-rc.1"
+  source = "github.com/arsw-dev/spa-platform//modules/static-site?ref=v1.0.0-rc.2"
   # ...
 }
 ```

@@ -93,6 +93,29 @@ run "reuses_an_existing_github_oidc_provider" {
   }
 }
 
+run "plan_role_trusts_an_immutable_subject" {
+  command = apply
+
+  variables {
+    github_subject_prefix = "repo:acme-co@111/site@222"
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role.plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == "repo:acme-co@111/site@222:pull_request"
+    error_message = "github_subject_prefix should replace repo:<github_repo> in the trusted subject."
+  }
+}
+
+run "subject_prefix_rejects_other_shapes" {
+  command = plan
+
+  variables {
+    github_subject_prefix = "repo:acme-co/*"
+  }
+
+  expect_failures = [var.github_subject_prefix]
+}
+
 run "plan_role_trusts_only_pull_requests" {
   command = apply
 

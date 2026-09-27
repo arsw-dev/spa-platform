@@ -65,6 +65,17 @@ variable "github_repo" {
   type        = string
 }
 
+variable "github_subject_prefix" {
+  description = "The repository's OIDC subject prefix, as GitHub reports it (gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix). Repos created with GitHub's immutable subjects use repo:<owner>@<owner id>/<repo>@<repo id>. Null means the legacy repo:<github_repo>"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.github_subject_prefix == null || can(regex("^repo:[A-Za-z0-9-]+(@[0-9]+)?/[A-Za-z0-9._-]+(@[0-9]+)?$", var.github_subject_prefix))
+    error_message = "github_subject_prefix must look like repo:owner/repo or repo:owner@123/repo@456, without a trailing colon."
+  }
+}
+
 variable "plan_role_name" {
   description = "Name of the account's Terraform plan role (account-bootstrap's plan_role_name output). When set, this site grants it read access to its own resources so pull-request plans work. Null skips the grant"
   type        = string

@@ -10,7 +10,7 @@ With `static-site`, as two calls: validation records first, then the domain reco
 provider "cloudflare" {} # reads CLOUDFLARE_API_TOKEN
 
 module "certificate_dns" {
-  source = "github.com/arsw-dev/spa-platform//modules/cloudflare-dns?ref=v1.0.0-rc.1"
+  source = "github.com/arsw-dev/spa-platform//modules/cloudflare-dns?ref=v1.0.0-rc.2"
 
   zone_id = var.cloudflare_zone_id
   records = {
@@ -23,7 +23,7 @@ module "certificate_dns" {
 }
 
 module "site_dns" {
-  source = "github.com/arsw-dev/spa-platform//modules/cloudflare-dns?ref=v1.0.0-rc.1"
+  source = "github.com/arsw-dev/spa-platform//modules/cloudflare-dns?ref=v1.0.0-rc.2"
 
   zone_id = var.cloudflare_zone_id
   records = {
