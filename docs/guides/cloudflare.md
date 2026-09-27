@@ -33,7 +33,3 @@ Your website's code checks your DNS setup automatically (it never changes it), s
 4. In GitHub, open your website's repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Name it `CLOUDFLARE_API_TOKEN`, paste the token, and save.
 
 Don't send the token to anyone, arsw.dev included; it goes straight into GitHub.
-
-## Removing access
-
-Remove arsw.dev under **Manage Account** → **Members**. Your DNS and website keep working.

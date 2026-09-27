@@ -4,7 +4,7 @@ The contractor's checklist, from first conversation to a live site on the client
 
 ## 0. Before your first client
 
-Every client's contractor role trusts **your** AWS account, as long as the caller signed in with MFA recently. So your account has to make MFA unskippable. Otherwise a leaked long-term key could enrol a new MFA device and reach every client.
+Every client's contractor role trusts **your** AWS account, as long as the caller signed in with MFA recently. So your account has to make MFA unskippable. Otherwise a leaked long-term key could enroll a new MFA device and reach every client.
 
 1. **Deny everything without MFA** for your IAM user, except minting an MFA session. Attach this as an inline policy (arsw-dev/portfolio manages it in `infra/bootstrap/`):
    ```json
@@ -19,7 +19,7 @@ Every client's contractor role trusts **your** AWS account, as long as the calle
      }]
    }
    ```
-   Don't exempt MFA-device management: that's exactly what a leaked key would use to enrol its own device.
+   Don't exempt MFA-device management: that's exactly what a leaked key would use to enroll its own device.
 2. **Work from a daily MFA session.** Set `mfa_serial` on the profile that holds your key (`aws configure set mfa_serial <arn>`). Then run `pnpm --filter contractor mfa-session` from this repository each day. It writes a 12-hour, MFA-backed `arsw-mfa` profile, taking the code from 1Password when `OP_MFA_ITEM` names the item and prompting otherwise. Everything else sources from `arsw-mfa`: your own account's Terraform and every client profile.
 
 ## 1. Gather
@@ -87,7 +87,9 @@ Send the client the preview address (the `site_url` output) once the first deplo
 
 The client already owns everything. To remove your access:
 
-- they delete the `arsw-dev-contractor` CloudFormation stack ([AWS guide](guides/aws.md), last part);
-- they remove you from the GitHub organization and the Cloudflare account.
+- they delete the `arsw-dev-contractor` CloudFormation stack;
+- they remove you from the GitHub repository's collaborators and from the Cloudflare account.
+
+Send them the [offboarding guide](offboarding.md), which walks through each step. It's kept out of `guides/` so new clients don't see it.
 
 Their site keeps running and deploying. The repository contains everything, and it pins spa-platform, which is public.
