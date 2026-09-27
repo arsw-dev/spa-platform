@@ -1,0 +1,74 @@
+name: Release
+
+# On a v* tag: publish the contractor-role template to S3 (CloudFormation quick-create links only accept S3) and create
+# the GitHub release with that version's one-click link. Tags are immutable (ruleset), and so are published
+# templates: uploads use If-None-Match: *, and the release role can't replace or delete anything.
+#
+# Needs repository variables TEMPLATES_BUCKET and RELEASE_ROLE_ARN (outputs of arsw-dev/portfolio's infra/bootstrap).
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.RELEASE_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Publish Contractor Role Template
+        env:
+          BUCKET: ${{ vars.TEMPLATES_BUCKET }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          aws s3api put-object \
+            --bucket "$BUCKET" \
+            --key "contractor-role/$TAG/contractor-role.yaml" \
+            --body cloudformation/contractor-role.yaml \
+            --content-type text/yaml \
+            --if-none-match '*'
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUCKET: ${{ vars.TEMPLATES_BUCKET }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          template_url="https://${BUCKET}.s3.us-east-1.amazonaws.com/contractor-role/${TAG}/contractor-role.yaml"
+          quick_create="https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?templateURL=$(jq -rn --arg u "$template_url" '$u|@uri')&stackName=arsw-dev-contractor&param_ExternalId=EXTERNAL_ID"
+
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          Changes: see [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/CHANGELOG.md).
+
+          ## Contractor access template
+
+          - Template: ${template_url}
+          - One-click link for a client (replace \`EXTERNAL_ID\` with their access code before sending):
+
+            ${quick_create}
+          EOF
+
+          prerelease=()
+          if [[ "$TAG" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" "${prerelease[@]}"
