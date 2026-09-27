@@ -16,7 +16,14 @@ Everything needed to host a single-page app on AWS (S3 + CloudFront) with Cloudf
 | [`.github/workflows/site-deploy.yml`](.github/workflows/site-deploy.yml)     | Reusable deploy for site repos: build, deploy with `tools/deploy` at the same commit, smoke test                                                                             |
 | [`cloudformation/contractor-role.yaml`](cloudformation/contractor-role.yaml) | Grants the contractor (arsw.dev) administrator access to a client's AWS account, requiring MFA and a per-client access code. Each release publishes it with a one-click link |
 
-Coming before `v1.0.0-rc.1`: a site template repo and onboarding guides.
+New sites start from [spa-template](https://github.com/arsw-dev/spa-template).
+
+## Documentation
+
+- **[Onboarding a client site](docs/onboarding.md):** the contractor's checklist, from gathering details to a live site on the client's domain.
+- **Client guides**, written for non-technical owners: [AWS](docs/guides/aws.md), [GitHub](docs/guides/github.md), [Cloudflare](docs/guides/cloudflare.md).
+- **[Runbook](docs/runbook.md):** rollback, restoring files, stuck state locks, the domain pre-flight, upgrading spa-platform, and more.
+- Each module's README: inputs, outputs and limits.
 
 ## Using the modules
 
