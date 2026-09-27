@@ -121,10 +121,10 @@ jobs:
 
       - name: Set Up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        # No dependency cache: the build job runs the site's npm tree and shares the cache scope, so a cache entry
+        # restored here could have been written by site code. Installing the deploy tool's few packages is fast.
         with:
           node-version: ${{ inputs.node-version }}
-          cache: pnpm
-          cache-dependency-path: .platform/pnpm-lock.yaml
 
       - name: Install Deploy Tool
         run: pnpm --dir .platform install --frozen-lockfile --filter deploy

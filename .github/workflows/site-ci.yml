@@ -43,6 +43,10 @@ on:
         description: pnpm workspace package that builds the site
         type: string
         default: site
+      deploy-environment:
+        description: The environment site-deploy.yml deploys from; CI fails unless it only allows the main branch
+        type: string
+        default: production
       requires-cloudflare:
         description: Fail fast with a clear message when the CLOUDFLARE_API_TOKEN secret is missing
         type: boolean
@@ -102,6 +106,29 @@ jobs:
           SITE_PACKAGE: ${{ inputs.site-package }}
         run: pnpm --filter "$SITE_PACKAGE" build
 
+      # The deploy role trusts this environment, so it must only run for main. GitHub Free can't configure
+      # environments on private repos, which is why client site repos are public (or on GitHub Team).
+      - name: Check Deploy Environment Is Limited to main
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENVIRONMENT: ${{ inputs.deploy-environment }}
+        run: |
+          if ! policy="$(gh api "repos/$GITHUB_REPOSITORY/environments/$ENVIRONMENT" --jq '.deployment_branch_policy' 2>/dev/null)"; then
+            echo "::error::Environment '$ENVIRONMENT' doesn't exist. Create it with deployment branches limited to main (Settings → Environments)."
+            exit 1
+          fi
+          if [ "$(jq -r '.custom_branch_policies // false' <<< "$policy")" != "true" ]; then
+            echo "::error::Environment '$ENVIRONMENT' must use 'Selected branches and tags' limited to main (it's '$policy')."
+            exit 1
+          fi
+          branches="$(gh api "repos/$GITHUB_REPOSITORY/environments/$ENVIRONMENT/deployment-branch-policies" --jq '[.branch_policies[] | "\(.type):\(.name)"] | sort | join(",")')"
+          if [ "$branches" != "branch:main" ]; then
+            echo "::error::Environment '$ENVIRONMENT' must allow only the main branch (it allows: ${branches:-nothing})."
+            exit 1
+          fi
+          echo "Environment '$ENVIRONMENT' only deploys from main"
+
       - name: Install Workflow Linter
         id: actionlint
         if: ${{ !cancelled() }}
@@ -152,8 +179,11 @@ jobs:
       pull-requests: write
 
     steps:
+      # No persisted token: PR-controlled Terraform (e.g. an external data source) runs in this job
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Installed before credentials exist, so no third-party setup code runs with them
       - name: Set Up Terraform
@@ -206,22 +236,30 @@ jobs:
           script: |
             const fs = require('fs');
 
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
+              per_page: 100,
             });
 
             for (const dir of JSON.parse(process.env.ROOTS)) {
               const planPath = `${dir}/plan.txt`;
               if (!fs.existsSync(planPath)) continue;
               const plan = fs.readFileSync(planPath, 'utf8');
-              if (plan.includes('No changes.')) continue;
+              const marker = `<!-- terraform-plan:${dir} -->`;
+              const existing = comments.find(c => c.body.includes(marker));
+
+              // Back to no changes: remove the old plan comment rather than leave it describing changes that are gone
+              if (plan.includes('No changes.')) {
+                if (existing) {
+                  await github.rest.issues.deleteComment({ comment_id: existing.id, owner: context.repo.owner, repo: context.repo.repo });
+                }
+                continue;
+              }
 
               const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n...(truncated)' : plan;
-              const marker = `<!-- terraform-plan:${dir} -->`;
               const body = `${marker}\n<details><summary>Terraform Plan: ${dir}</summary>\n\n\`\`\`\n${truncated}\n\`\`\`\n</details>`;
-              const existing = comments.find(c => c.body.includes(marker));
 
               if (existing) {
                 await github.rest.issues.updateComment({

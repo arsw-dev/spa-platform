@@ -50,6 +50,15 @@ importers:
         specifier: catalog:tooling
         version: 6.0.3
 
+  tools/contractor:
+    devDependencies:
+      '@types/node':
+        specifier: catalog:tooling
+        version: 25.9.3
+      typescript:
+        specifier: catalog:tooling
+        version: 6.0.3
+
   tools/deploy:
     dependencies:
       '@aws-sdk/client-cloudfront':

@@ -39,9 +39,9 @@ arsw.dev will send you a link and an access code. The link opens AWS with everyt
 
 **What this allows:** arsw.dev can manage the AWS resources that host your website.
 
-- It can only sign in with multi-factor authentication and your access code.
-- AWS records every action in your account's CloudTrail history, which you can review at any time.
-- It can't see your password or billing details.
+- It can only sign in with a recent multi-factor sign-in and your access code.
+- AWS records its actions in your account's CloudTrail event history (the last 90 days), which you can review at any time.
+- It can't see your password.
 
 ## Removing access
 
@@ -50,4 +50,4 @@ Whenever you want, for example between projects:
 1. Search for **CloudFormation** and open it.
 2. Select the stack named **arsw-dev-contractor** and choose **Delete**.
 
-Access ends immediately. Your website keeps running. To give access again later, open the same link.
+arsw.dev's access through this role ends immediately. Your website keeps running: the roles it uses to plan and deploy stay, and only your website's own GitHub repository can use them. To give access again later, open the same link.

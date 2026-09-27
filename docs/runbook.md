@@ -75,12 +75,21 @@ With DNS managed elsewhere, use `attach_domains = false` first. The apply reques
 
 ## Upgrade spa-platform
 
-A site pins spa-platform in two places, which must move together: the `?ref=` of every module `source` in `infra/`, and the commit SHA in `.github/workflows/ci.yml` and `deploy.yml`.
+A site pins spa-platform in two places:
+
+- **Modules:** the `?ref=` of every module `source` in `infra/`, set to the release tag (`?ref=v1.0.0`). Release tags are immutable (a ruleset forbids moving or deleting them).
+- **Workflows:** `.github/workflows/ci.yml` and `deploy.yml` call the reusable workflows at the release's commit SHA, with the tag as a comment (`@<sha> # v1.0.0`). GitHub requires actions and reusable workflows to be pinned by SHA.
+
+Keep both on the same release. Dependabot only proposes the workflow pin, so treat its PR as the reminder to move the module refs in the same PR. A short-lived mismatch still works, but nothing tests the pairing.
 
 1. Read the [CHANGELOG](../CHANGELOG.md) between the two versions. A major version bump means breaking changes, with migration notes.
-2. Update every pin to the release's commit SHA, keeping the tag as a comment on the workflow lines.
+2. Update both pins to the release.
 3. `terraform init` in each root (the module source changed), then plan both. Apply if the plan is what the changelog describes.
 4. Open a PR. CI runs the new workflows, and merging deploys with the new deploy tool.
+
+## Pull requests from forks
+
+Site repos are public, so anyone can open a PR from a fork. GitHub gives fork PRs no OIDC token and no secrets, so the Plan job can't run and **CI Result fails**. That's deliberate: it fails closed. To take an outside change, push it to a branch in the repository and open the PR from there, after reading it: the Plan job runs the branch's Terraform with the plan role.
 
 ## Add another Terraform root
 

@@ -17,7 +17,7 @@ An organization is your business's space on GitHub, separate from any one person
 ## 3. Create an empty repository
 
 1. In your organization, choose **New repository**.
-2. Name it (for example `website`) and choose **Private**.
+2. Name it (for example `website`) and choose **Public**. Your website's code holds no passwords or keys, and on GitHub's free plan only public repositories can have the protections that keep deployments safe. If it must be private, your organization needs GitHub's **Team** plan; ask arsw.dev.
 3. **Don't** add a README, `.gitignore` or license. It must start empty.
 4. Choose **Create repository**.
 

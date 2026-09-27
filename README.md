@@ -2,7 +2,7 @@
 
 Everything needed to host a single-page app on AWS (S3 + CloudFront) with Cloudflare DNS, deployed from GitHub Actions. Each site lives in its owner's AWS account, GitHub repository and Cloudflare account. This repo is the shared, versioned part they pin to.
 
-> **Status:** pre-release. The first release will be `v1.0.0-rc.1`. Until then, pin a commit SHA.
+> **Status:** release candidate (`v1.0.0-rc.1`). `v1.0.0` follows an end-to-end run in a fresh AWS account.
 
 ## What's here
 
@@ -12,6 +12,7 @@ Everything needed to host a single-page app on AWS (S3 + CloudFront) with Cloudf
 | [`modules/cloudflare-dns`](modules/cloudflare-dns)                           | DNS records in a Cloudflare zone (certificate validation and domain records)                                                                                                 |
 | [`modules/account-bootstrap`](modules/account-bootstrap)                     | Per-account setup: state bucket, GitHub OIDC provider, read-only plan role                                                                                                   |
 | [`tools/deploy`](tools/deploy)                                               | Deploy tool: uploads a Vite build with the right caching, records each deploy, prunes safely, and smoke-tests the live site                                                  |
+| [`tools/contractor`](tools/contractor)                                       | Contractor's daily MFA session (`pnpm --filter contractor mfa-session`), which client profiles and Terraform use                                                             |
 | [`.github/workflows/site-ci.yml`](.github/workflows/site-ci.yml)             | Reusable CI for site repos: lint, build, actionlint, Terraform fmt and plans, live routing-function test                                                                     |
 | [`.github/workflows/site-deploy.yml`](.github/workflows/site-deploy.yml)     | Reusable deploy for site repos: build, deploy with `tools/deploy` at the same commit, smoke test                                                                             |
 | [`cloudformation/contractor-role.yaml`](cloudformation/contractor-role.yaml) | Grants the contractor (arsw.dev) administrator access to a client's AWS account, requiring MFA and a per-client access code. Each release publishes it with a one-click link |
@@ -40,7 +41,7 @@ Each module's README covers its inputs, outputs and limits. [arsw-dev/portfolio]
 
 ## Using the workflows
 
-Site repos call the reusable workflows from their own `ci.yml` and `deploy.yml`, pinned to a release commit SHA with the version as a comment (Dependabot keeps it updated). Each workflow file's header shows the caller, including the permissions it must grant. Keep an aggregate `CI Result` job in the site's own workflow as the required check, so the check's name doesn't depend on the platform.
+Site repos call the reusable workflows from their own `ci.yml` and `deploy.yml`, pinned to a release commit SHA with the version as a comment. Dependabot proposes new workflow pins; move the module `?ref=` tags to the same release in that PR ([runbook](docs/runbook.md#upgrade-spa-platform)). Each workflow file's header shows the caller, including the permissions it must grant. Keep an aggregate `CI Result` job in the site's own workflow as the required check, so the check's name doesn't depend on the platform.
 
 The deploy workflow runs `tools/deploy` from the same spa-platform commit as the workflow itself (`job.workflow_sha`), so one pin covers both.
 

@@ -1,0 +1,14 @@
+{
+  "name": "contractor",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "mfa-session": "node src/mfa-session.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:tooling",
+    "typescript": "catalog:tooling"
+  }
+}
