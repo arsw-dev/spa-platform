@@ -2,7 +2,10 @@
 
 Everything needed to host a single-page app on AWS (S3 + CloudFront) with Cloudflare DNS, deployed from GitHub Actions. Each site lives in its owner's AWS account, GitHub repository and Cloudflare account. This repo is the shared, versioned part they pin to.
 
-> **Status:** release candidate (`v1.0.0-rc.2`). `v1.0.0` follows an end-to-end run in a fresh AWS account.
+> **Superseded, kept as a reference.** arsw.dev's client sites now run on Cloudflare Workers, in each client's own
+> Cloudflare account, so this AWS setup won't get further releases: `v1.0.0-rc.2` is the last, and there will be no
+> `v1.0.0`. [arsw-dev/portfolio](https://github.com/arsw-dev/portfolio) still runs on it until it moves to Workers too;
+> after that, this repository is archived. Everything here still works as documented, at `v1.0.0-rc.2`.
 
 ## What's here
 
